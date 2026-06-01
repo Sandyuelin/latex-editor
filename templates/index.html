@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaTeX Editor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<link rel="stylesheet" id="cm-light-theme" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/default.min.css" disabled>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
+<style>
+  /* ── Design tokens ── */
+  :root[data-theme="dark"] {
+    --bg:        #1a1a1a;
+    --bg-bar:    #111111;
+    --bg-hover:  #222222;
+    --border:    #333333;
+    --text:      #e0e0e0;
+    --text-dim:  #666666;
+    --accent:    #555555;
+    --btn-bg:    #333333;
+    --btn-text:  #e0e0e0;
+    --btn-hover: #444444;
+    --status-bg: #2a2a2a;
+    --ok-bg:     #2d4a2d;  --ok-text:  #7ec87e;
+    --err-bg:    #4a2020;  --err-text: #e07070;
+    --busy-bg:   #3a3a2a;  --busy-text:#c8c870;
+    --cm-theme:  dracula;
+  }
+  :root[data-theme="light"] {
+    --bg:        #f5f5f5;
+    --bg-bar:    #ffffff;
+    --bg-hover:  #eeeeee;
+    --border:    #d0d0d0;
+    --text:      #1a1a1a;
+    --text-dim:  #888888;
+    --accent:    #aaaaaa;
+    --btn-bg:    #e8e8e8;
+    --btn-text:  #1a1a1a;
+    --btn-hover: #d8d8d8;
+    --status-bg: #eeeeee;
+    --ok-bg:     #d4edda;  --ok-text:  #276327;
+    --err-bg:    #fde8e8;  --err-text: #a33;
+    --busy-bg:   #fff8d4;  --busy-text:#6b5a00;
+    --cm-theme:  default;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  /* Top bar */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--bg-bar);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #topbar h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+
+  .spacer { flex: 1; }
+
+  /* Theme toggle */
+  #theme-toggle {
+    display: flex;
+    align-items: center;
+    background: var(--status-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .theme-btn {
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--text-dim);
+    border: none;
+    background: transparent;
+    transition: background 0.15s, color 0.15s;
+    font-size: 12px;
+  }
+  .theme-btn.active {
+    background: var(--btn-bg);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .theme-btn:hover:not(.active) { background: var(--bg-hover); }
+
+  /* Status badge */
+  #status {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 5px;
+    background: var(--status-bg);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  #status.compiling { background: var(--busy-bg); color: var(--busy-text); border-color: transparent; }
+  #status.success   { background: var(--ok-bg);   color: var(--ok-text);   border-color: transparent; }
+  #status.error     { background: var(--err-bg);  color: var(--err-text);  border-color: transparent; }
+
+  /* Compile button */
+  #compile-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  #compile-btn:hover  { background: var(--btn-hover); }
+  #compile-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  kbd {
+    font-size: 10px;
+    padding: 1px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-dim);
+  }
+
+  /* Main split */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Editor pane */
+  #editor-pane {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    min-width: 200px;
+  }
+
+  .pane-label {
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--bg-bar);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  /* CodeMirror overrides */
+  .CodeMirror {
+    height: 100%;
+    font-size: 13.5px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+    line-height: 1.65;
+  }
+  [data-theme="light"] .CodeMirror {
+    background: #ffffff;
+    color: #1a1a1a;
+  }
+  [data-theme="light"] .CodeMirror-gutters { background: #f0f0f0; border-right: 1px solid #ddd; }
+  [data-theme="light"] .CodeMirror-linenumber { color: #aaa; }
+
+  /* Resizer */
+  #resizer {
+    width: 3px;
+    background: var(--border);
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  #resizer:hover, #resizer.dragging { background: var(--accent); }
+
+  /* Preview pane */
+  #preview-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    background: var(--bg);
+  }
+
+  #pdf-frame {
+    flex: 1;
+    border: none;
+    background: #fff;
+    display: none;
+  }
+
+  #pdf-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    gap: 8px;
+  }
+  #pdf-placeholder p { font-size: 13px; }
+  #pdf-placeholder p.hint { font-size: 11px; color: var(--border); }
+
+  /* Error panel */
+  #error-panel {
+    display: none;
+    background: var(--err-bg);
+    border-top: 1px solid var(--err-text);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--err-text);
+    font-family: monospace;
+    max-height: 130px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>LaTeX Editor</h1>
+  <div class="spacer"></div>
+
+  <!-- Light / Dark toggle -->
+  <div id="theme-toggle">
+    <button class="theme-btn" id="btn-light" onclick="setTheme('light')">Light</button>
+    <button class="theme-btn active" id="btn-dark"  onclick="setTheme('dark')">Dark</button>
+  </div>
+
+  <div id="status">Ready</div>
+
+  <button id="compile-btn" onclick="compile()">
+    ▶ Compile <kbd>⌘↵</kbd>
+  </button>
+</div>
+
+<div id="main">
+  <div id="editor-pane">
+    <div class="pane-label">LaTeX Source</div>
+    <textarea id="code-area"></textarea>
+  </div>
+
+  <div id="resizer"></div>
+
+  <div id="preview-pane">
+    <div class="pane-label">PDF Preview</div>
+    <div id="pdf-placeholder">
+      <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" opacity="0.3">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <p>Press <strong>Compile</strong> to render PDF</p>
+      <p class="hint">⌘+Enter to compile</p>
+    </div>
+    <iframe id="pdf-frame"></iframe>
+    <div id="error-panel"></div>
+  </div>
+</div>
+
+<script>
+/* ── Theme ── */
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  document.getElementById('btn-dark').classList.toggle('active',  t === 'dark');
+  editor.setOption('theme', t === 'dark' ? 'dracula' : 'default');
+  localStorage.setItem('theme', t);
+}
+
+/* ── Default content ── */
+const DEFAULT_LATEX = `\\documentclass{article}
+\\usepackage{amsmath, amssymb}
+\\usepackage{geometry}
+\\geometry{margin=2.5cm}
+
+\\title{My First LaTeX Document}
+\\author{Your Name}
+\\date{\\today}
+
+\\begin{document}
+\\maketitle
+
+\\section{Introduction}
+This is a live LaTeX editor inspired by Overleaf and OpenPrism.
+Edit on the left, see your PDF on the right.
+
+\\section{Math Example}
+The quadratic formula is:
+\\[
+  x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+\\]
+
+Euler's identity:
+\\[
+  e^{i\\pi} + 1 = 0
+\\]
+
+\\section{Lists}
+\\begin{itemize}
+  \\item Write LaTeX on the left
+  \\item Click Compile (or press \\textbf{Cmd+Enter})
+  \\item See your PDF on the right
+\\end{itemize}
+
+\\end{document}`;
+
+/* ── CodeMirror ── */
+const savedTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+const editor = CodeMirror.fromTextArea(document.getElementById('code-area'), {
+  mode: 'stex',
+  theme: savedTheme === 'dark' ? 'dracula' : 'default',
+  lineNumbers: true,
+  lineWrapping: true,
+  indentUnit: 2,
+  tabSize: 2,
+  autofocus: true,
+  extraKeys: { 'Cmd-Enter': compile, 'Ctrl-Enter': compile }
+});
+editor.setValue(DEFAULT_LATEX);
+
+// Sync toggle buttons
+document.getElementById('btn-light').classList.toggle('active', savedTheme === 'light');
+document.getElementById('btn-dark').classList.toggle('active',  savedTheme === 'dark');
+
+/* ── Resize editor to fill pane ── */
+const editorPane = document.getElementById('editor-pane');
+function resizeEditor() {
+  const labelH = editorPane.querySelector('.pane-label').offsetHeight;
+  editor.setSize('100%', (editorPane.offsetHeight - labelH) + 'px');
+}
+window.addEventListener('resize', resizeEditor);
+setTimeout(resizeEditor, 50);
+
+/* ── Drag resizer ── */
+const resizer = document.getElementById('resizer');
+let isResizing = false;
+resizer.addEventListener('mousedown', () => {
+  isResizing = true;
+  resizer.classList.add('dragging');
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'col-resize';
+});
+document.addEventListener('mousemove', e => {
+  if (!isResizing) return;
+  const rect = document.getElementById('main').getBoundingClientRect();
+  const pct = ((e.clientX - rect.left) / rect.width) * 100;
+  editorPane.style.width = Math.max(20, Math.min(80, pct)) + '%';
+  resizeEditor();
+});
+document.addEventListener('mouseup', () => {
+  isResizing = false;
+  resizer.classList.remove('dragging');
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+});
+
+/* ── Compile ── */
+async function compile() {
+  const btn = document.getElementById('compile-btn');
+  const status = document.getElementById('status');
+  const errorPanel = document.getElementById('error-panel');
+  const frame = document.getElementById('pdf-frame');
+  const placeholder = document.getElementById('pdf-placeholder');
+
+  btn.disabled = true;
+  status.textContent = 'Compiling…';
+  status.className = 'compiling';
+  errorPanel.style.display = 'none';
+
+  try {
+    const res = await fetch('/compile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: editor.getValue() })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      placeholder.style.display = 'none';
+      frame.style.display = 'block';
+      frame.src = '/pdf?t=' + Date.now();
+      status.textContent = '✓ Success';
+      status.className = 'success';
+      setTimeout(() => { status.textContent = 'Ready'; status.className = ''; }, 2000);
+    } else {
+      status.textContent = '✗ Error';
+      status.className = 'error';
+      errorPanel.textContent = data.error || 'Unknown error';
+      errorPanel.style.display = 'block';
+    }
+  } catch (e) {
+    status.textContent = '✗ Failed';
+    status.className = 'error';
+    errorPanel.textContent = 'Could not reach server: ' + e.message;
+    errorPanel.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
