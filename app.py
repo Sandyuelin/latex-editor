@@ -16,6 +16,9 @@ from flask import Flask, request, jsonify, send_file, render_template, Response,
 
 app = Flask(__name__)
 
+# Ensure TeX binaries are on PATH (BasicTeX / MacTeX)
+os.environ['PATH'] = '/Library/TeX/texbin:/usr/local/bin:' + os.environ.get('PATH', '')
+
 # ── Project directory ──────────────────────────────────────────────────────────
 DEFAULT_PROJECT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'project')
 PROJECT_DIR = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PROJECT
