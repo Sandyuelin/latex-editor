@@ -19,10 +19,10 @@ fi
 # Activate venv
 source venv/bin/activate
 
-# Install flask if needed
-python3 -c "import flask" 2>/dev/null || {
-  echo "📦 Installing Flask..."
-  pip install flask -q
+# Install dependencies if needed
+python3 -c "import flask, anthropic" 2>/dev/null || {
+  echo "📦 Installing dependencies..."
+  pip install flask anthropic -q
 }
 
 # Check pdflatex
@@ -41,4 +41,5 @@ echo "🚀 Starting server at http://localhost:8080"
 echo "   Press Ctrl+C to stop"
 echo ""
 
-python3 app.py
+# Pass optional project folder: bash run.sh /path/to/my/project
+python3 app.py "$@"
